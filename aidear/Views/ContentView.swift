@@ -10,6 +10,7 @@ struct ContentView: View {
     @State private var showCoverPrompt = false
     @State private var webContentHeight: CGFloat = 100
     @State private var copyHTMLTrigger = 0
+    @State private var inputExpanded = true
 
     private var service: GenerationService {
         GenerationService(settings: settings)
@@ -17,20 +18,35 @@ struct ContentView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    inputSection
-                    generateButton
-                    if let errorMessage {
-                        errorBanner(errorMessage)
-                    }
-                    if let result {
-                        resultSection(result)
-                    }
+            VStack(spacing: 0) {
+                if result != nil {
+                    collapsedInputBar
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
                 }
-                .padding()
-                .contentShape(Rectangle())
-                .onTapGesture { dismissKeyboard() }
+
+                ScrollView {
+                    VStack(spacing: 20) {
+                        if result == nil {
+                            inputSection
+                            generateButton
+                        } else if inputExpanded {
+                            inputSection
+                            generateButton
+                        }
+
+                        if let errorMessage {
+                            errorBanner(errorMessage)
+                        }
+                        if let result {
+                            resultSection(result)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, result != nil && !inputExpanded ? 16 : 16)
+                    .contentShape(Rectangle())
+                    .onTapGesture { dismissKeyboard() }
+                }
             }
             .scrollDismissesKeyboard(.immediately)
             .navigationTitle("Aidear")
@@ -57,7 +73,7 @@ struct ContentView: View {
                 .foregroundColor(.secondary)
 
             TextEditor(text: $inputText)
-                .frame(minHeight: 150)
+                .frame(minHeight: result != nil ? 100 : 150)
                 .padding(12)
                 .background(Color(.systemGray6))
                 .cornerRadius(12)
@@ -77,6 +93,35 @@ struct ContentView: View {
         }
     }
 
+    // MARK: - Collapsed Input Bar
+
+    private var collapsedInputBar: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                inputExpanded.toggle()
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "pencil.line")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                Text(inputText.isEmpty ? "点击编辑你的想法..." : inputText)
+                    .lineLimit(1)
+                    .font(.subheadline)
+                    .foregroundColor(inputText.isEmpty ? Color(.systemGray3) : .primary)
+                Spacer()
+                Image(systemName: inputExpanded ? "chevron.up" : "chevron.down")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(Color(.systemGray6))
+            .cornerRadius(10)
+        }
+        .buttonStyle(.plain)
+    }
+
     // MARK: - Generate Button
 
     private var generateButton: some View {
@@ -90,7 +135,7 @@ struct ContentView: View {
                     Text("AI 正在创作...")
                 } else {
                     Image(systemName: "sparkles")
-                    Text("AI 生成文章")
+                    Text(result != nil ? "重新生成" : "AI 生成文章")
                 }
             }
             .font(.headline)
@@ -252,6 +297,9 @@ struct ContentView: View {
 
         do {
             result = try await service.generate(from: inputText)
+            withAnimation(.easeInOut(duration: 0.25)) {
+                inputExpanded = false
+            }
         } catch {
             errorMessage = error.localizedDescription
         }
