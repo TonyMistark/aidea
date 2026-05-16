@@ -1,5 +1,10 @@
 import SwiftUI
 
+enum InputMode: String, CaseIterable {
+    case aiGenerate = "AI 创作"
+    case directConvert = "直接转换"
+}
+
 struct ContentView: View {
     @EnvironmentObject private var settings: AppSettings
     @State private var inputText = ""
@@ -11,6 +16,7 @@ struct ContentView: View {
     @State private var webContentHeight: CGFloat = 100
     @State private var copyHTMLTrigger = 0
     @State private var inputExpanded = true
+    @State private var inputMode: InputMode = .aiGenerate
 
     private var service: GenerationService {
         GenerationService(settings: settings)
@@ -28,9 +34,11 @@ struct ContentView: View {
                 ScrollView {
                     VStack(spacing: 20) {
                         if result == nil {
+                            modePicker
                             inputSection
                             generateButton
                         } else if inputExpanded {
+                            modePicker
                             inputSection
                             generateButton
                         }
@@ -64,11 +72,22 @@ struct ContentView: View {
         }
     }
 
+    // MARK: - Mode Picker
+
+    private var modePicker: some View {
+        Picker("模式", selection: $inputMode) {
+            ForEach(InputMode.allCases, id: \.self) { mode in
+                Text(mode.rawValue).tag(mode)
+            }
+        }
+        .pickerStyle(.segmented)
+    }
+
     // MARK: - Input Section
 
     private var inputSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("写下你的想法")
+            Text(inputMode == .aiGenerate ? "写下你的想法" : "粘贴 Markdown 文本")
                 .font(.headline)
                 .foregroundColor(.secondary)
 
@@ -83,7 +102,9 @@ struct ContentView: View {
                 )
                 .overlay(alignment: .topLeading) {
                     if inputText.isEmpty {
-                        Text("例如：今天和同事聊到远程办公的效率问题，我觉得关键不在工具，而在信任...")
+                        Text(inputMode == .aiGenerate
+                             ? "例如：今天和同事聊到远程办公的效率问题，我觉得关键不在工具，而在信任..."
+                             : "例如：## 我的观点\n\n内容...\n\n- 要点一\n- 要点二")
                             .foregroundColor(Color(.systemGray3))
                             .padding(.horizontal, 16)
                             .padding(.vertical, 20)
@@ -105,7 +126,9 @@ struct ContentView: View {
                 Image(systemName: "pencil.line")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
-                Text(inputText.isEmpty ? "点击编辑你的想法..." : inputText)
+                Text(inputText.isEmpty
+                     ? (inputMode == .aiGenerate ? "点击编辑你的想法..." : "点击编辑 Markdown 文本...")
+                     : inputText)
                     .lineLimit(1)
                     .font(.subheadline)
                     .foregroundColor(inputText.isEmpty ? Color(.systemGray3) : .primary)
@@ -126,16 +149,19 @@ struct ContentView: View {
 
     private var generateButton: some View {
         Button {
-            Task { await generate() }
+            Task { await handleAction() }
         } label: {
             HStack(spacing: 8) {
                 if isGenerating {
                     ProgressView()
                         .tint(.white)
                     Text("AI 正在创作...")
-                } else {
+                } else if inputMode == .aiGenerate {
                     Image(systemName: "sparkles")
                     Text(result != nil ? "重新生成" : "AI 生成文章")
+                } else {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                    Text(result != nil ? "重新转换" : "转换")
                 }
             }
             .font(.headline)
@@ -170,25 +196,29 @@ struct ContentView: View {
             Divider()
 
             // Title
-            Text(result.title)
-                .font(.title2)
-                .fontWeight(.bold)
+            if !result.title.isEmpty {
+                Text(result.title)
+                    .font(.title2)
+                    .fontWeight(.bold)
+            }
 
             // Summary
-            HStack(alignment: .top, spacing: 8) {
-                Text("摘要")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Color.blue.opacity(0.7))
-                    .cornerRadius(4)
+            if !result.summary.isEmpty {
+                HStack(alignment: .top, spacing: 8) {
+                    Text("摘要")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.blue.opacity(0.7))
+                        .cornerRadius(4)
 
-                Text(result.summary)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .lineSpacing(4)
+                    Text(result.summary)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .lineSpacing(4)
+                }
             }
 
             // Article content — rendered as WeChat-styled HTML via md2wechat CSS
@@ -201,10 +231,11 @@ struct ContentView: View {
             )
             .frame(height: max(webContentHeight, 100))
 
-            Divider()
-
             // Cover image prompt
-            coverPromptSection(result.coverImagePrompt)
+            if !result.coverImagePrompt.isEmpty {
+                Divider()
+                coverPromptSection(result.coverImagePrompt)
+            }
 
             // Action buttons
             HStack(spacing: 12) {
@@ -289,6 +320,15 @@ struct ContentView: View {
                                         to: nil, from: nil, for: nil)
     }
 
+    private func handleAction() async {
+        switch inputMode {
+        case .aiGenerate:
+            await generate()
+        case .directConvert:
+            convert()
+        }
+    }
+
     private func generate() async {
         isGenerating = true
         errorMessage = nil
@@ -305,5 +345,32 @@ struct ContentView: View {
         }
 
         isGenerating = false
+    }
+
+    private func convert() {
+        errorMessage = nil
+        result = nil
+        showCoverPrompt = false
+
+        let lines = inputText.split(separator: "\n", omittingEmptySubsequences: false)
+        var title = ""
+        if let firstLine = lines.first?.trimmingCharacters(in: .whitespaces),
+           firstLine.hasPrefix("# ") {
+            title = String(firstLine.dropFirst(2))
+        } else if let firstLine = lines.first?.trimmingCharacters(in: .whitespaces),
+                  firstLine.hasPrefix("#") {
+            title = String(firstLine.dropFirst(1))
+        }
+
+        result = GenerationResult(
+            title: title,
+            summary: "",
+            content: inputText,
+            coverImagePrompt: ""
+        )
+
+        withAnimation(.easeInOut(duration: 0.25)) {
+            inputExpanded = false
+        }
     }
 }
