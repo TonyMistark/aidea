@@ -218,6 +218,16 @@ struct ContentView: View {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .lineSpacing(4)
+
+                    Spacer()
+
+                    Button {
+                        UIPasteboard.general.string = result.summary
+                    } label: {
+                        Image(systemName: "doc.on.doc")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.borderless)
                 }
             }
 
