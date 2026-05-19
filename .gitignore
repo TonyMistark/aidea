@@ -39,8 +39,14 @@ fastlane/test_output
 timeline.xctimeline
 playground.xcworkspace
 
-# Claude Code
+# AI tools
 .claude/
+.cc-connect/
+.cursor/
+.codebuddy/
+.windsurf/
+.trae/
+*.aidear.*
 
 # Playground
 *.playground
