@@ -17,6 +17,8 @@ struct ContentView: View {
     @State private var copyHTMLTrigger = 0
     @State private var inputExpanded = true
     @State private var inputMode: InputMode = .aiGenerate
+    @State private var generatingTask: Task<Void, Never>?
+    @State private var showCancelAlert = false
 
     private var service: GenerationService {
         GenerationService(settings: settings)
@@ -149,13 +151,17 @@ struct ContentView: View {
 
     private var generateButton: some View {
         Button {
-            Task { await handleAction() }
+            if isGenerating {
+                showCancelAlert = true
+            } else {
+                handleAction()
+            }
         } label: {
             HStack(spacing: 8) {
                 if isGenerating {
                     ProgressView()
                         .tint(.white)
-                    Text("AI 正在创作...")
+                    Text("正在生成...")
                 } else if inputMode == .aiGenerate {
                     Image(systemName: "sparkles")
                     Text(result != nil ? "重新生成" : "AI 生成文章")
@@ -168,10 +174,23 @@ struct ContentView: View {
             .foregroundColor(.white)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(inputText.trimmingCharacters(in: .whitespaces).isEmpty ? Color.gray : Color.blue)
+            .background(
+                isGenerating
+                    ? Color.orange
+                    : (inputText.trimmingCharacters(in: .whitespaces).isEmpty ? Color.gray : Color.blue)
+            )
             .cornerRadius(12)
         }
-        .disabled(inputText.trimmingCharacters(in: .whitespaces).isEmpty || isGenerating)
+        .disabled(!isGenerating && inputText.trimmingCharacters(in: .whitespaces).isEmpty)
+        .alert("取消生成？", isPresented: $showCancelAlert) {
+            Button("继续生成", role: .cancel) { }
+            Button("取消生成", role: .destructive) {
+                generatingTask?.cancel()
+                generatingTask = nil
+            }
+        } message: {
+            Text("当前正在生成文章，确定要取消吗？")
+        }
     }
 
     // MARK: - Error
@@ -330,31 +349,36 @@ struct ContentView: View {
                                         to: nil, from: nil, for: nil)
     }
 
-    private func handleAction() async {
+    private func handleAction() {
         switch inputMode {
         case .aiGenerate:
-            await generate()
+            generate()
         case .directConvert:
             convert()
         }
     }
 
-    private func generate() async {
+    private func generate() {
         isGenerating = true
         errorMessage = nil
         result = nil
         showCoverPrompt = false
 
-        do {
-            result = try await service.generate(from: inputText)
-            withAnimation(.easeInOut(duration: 0.25)) {
-                inputExpanded = false
+        generatingTask = Task {
+            do {
+                let genResult = try await service.generate(from: inputText)
+                result = genResult
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    inputExpanded = false
+                }
+            } catch is CancellationError {
+                errorMessage = "已取消生成"
+            } catch {
+                errorMessage = error.localizedDescription
             }
-        } catch {
-            errorMessage = error.localizedDescription
+            isGenerating = false
+            generatingTask = nil
         }
-
-        isGenerating = false
     }
 
     private func convert() {
