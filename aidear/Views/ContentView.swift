@@ -19,6 +19,7 @@ struct ContentView: View {
     @State private var inputMode: InputMode = .aiGenerate
     @State private var generatingTask: Task<Void, Never>?
     @State private var showCancelAlert = false
+    @State private var elapsedSeconds = 0
 
     private var service: GenerationService {
         GenerationService(settings: settings)
@@ -161,7 +162,7 @@ struct ContentView: View {
                 if isGenerating {
                     ProgressView()
                         .tint(.white)
-                    Text("正在生成...")
+                    Text("正在生成... \(elapsedSeconds)s")
                 } else if inputMode == .aiGenerate {
                     Image(systemName: "sparkles")
                     Text(result != nil ? "重新生成" : "AI 生成文章")
@@ -360,11 +361,21 @@ struct ContentView: View {
 
     private func generate() {
         isGenerating = true
+        elapsedSeconds = 0
         errorMessage = nil
         result = nil
         showCoverPrompt = false
 
         generatingTask = Task {
+            // 秒计时器
+            let timerTask = Task {
+                while !Task.isCancelled {
+                    try? await Task.sleep(nanoseconds: 1_000_000_000)
+                    await MainActor.run { elapsedSeconds += 1 }
+                }
+            }
+            defer { timerTask.cancel() }
+
             do {
                 let genResult = try await service.generate(from: inputText)
                 result = genResult
