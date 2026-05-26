@@ -340,8 +340,10 @@ raw SSE stream
 
 ### 8.1 版本策略
 
-- Prompt 硬编码在 App 中（作为资源文件或代码常量）
-- 每个版本的 Prompt 有版本号（如 `prompt-v1.0.0`）
+- Prompt 存储在 UserDefaults，用户可在设置页查看和编辑
+- 内置默认 Prompt 作为初始值（`AppSettings.defaultPrompt`）
+- 修改保存后即时生效，影响所有新生成的文章
+- 提供「恢复默认」按钮，一键还原到内置版本
 - 后续可通过远程配置更新 Prompt（P2 考虑）
 
 ### 8.2 Prompt 测试
@@ -373,10 +375,16 @@ raw SSE stream
 好处：每阶段可控、可干预、质量更高。
 代价：API 调用次数 × 4，成本和时间都会增加。
 
-### 9.2 用户自定义 Prompt 模板（P2）
+### 9.2 用户自定义 Prompt 模板（✅ 已实现）
 
-- 允许高级用户编辑 System Prompt
+- 允许高级用户编辑 System Prompt — 在设置页提供 TextEditor 编辑区
+- 修改保存后即时生效，覆盖所有新生成的文章
+- 提供「恢复默认」按钮，支持一键还原
+- 当前持久化到 UserDefaults，后续可扩展到 iCloud 同步
+
+#### 未来方向（P2）
 - 提供 Prompt 模板市场（社区共享）
+- 支持多套 Prompt 预设切换
 - 需要安全审查机制
 
 ### 9.3 文章配图生成（P2）
