@@ -10,6 +10,12 @@ struct SettingsView: View {
     // Delete confirmation
     @State private var promptToDelete: UUID?
 
+    // Edit sheet
+    @State private var editPromptID: UUID?
+    @State private var editPromptName = ""
+    @State private var editPromptContent = ""
+    @State private var showingEditor = false
+
     init() {
         let defaults = UserDefaults.standard
         _apiKey = State(initialValue: defaults.string(forKey: "api_key") ?? "")
@@ -63,13 +69,6 @@ struct SettingsView: View {
                 // MARK: - Prompt 管理
                 promptSection
             }
-            .navigationDestination(for: PromptEditorState.self) { state in
-                PromptEditView(
-                    editingID: state.id,
-                    initialName: state.name,
-                    initialContent: state.content
-                )
-            }
             .navigationTitle("设置")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -91,6 +90,16 @@ struct SettingsView: View {
             } message: {
                 Text("确定要删除这个 Prompt 吗？此操作不可撤销。")
             }
+            .sheet(isPresented: $showingEditor) {
+                NavigationStack {
+                    PromptEditView(
+                        editingID: editPromptID,
+                        initialName: editPromptName,
+                        initialContent: editPromptContent
+                    )
+                }
+                .presentationDetents([.large])
+            }
         }
     }
 
@@ -102,9 +111,12 @@ struct SettingsView: View {
                 promptRow(prompt: prompt)
             }
 
-            NavigationLink(
-                value: PromptEditorState(id: nil, name: "", content: "")
-            ) {
+            Button {
+                editPromptID = nil
+                editPromptName = ""
+                editPromptContent = ""
+                showingEditor = true
+            } label: {
                 Label("添加 Prompt", systemImage: "plus.circle")
             }
         } header: {
@@ -162,9 +174,12 @@ struct SettingsView: View {
             .tint(.blue)
 
             // Edit
-            NavigationLink(
-                value: PromptEditorState(id: prompt.id, name: prompt.name, content: prompt.content)
-            ) {
+            Button {
+                editPromptID = prompt.id
+                editPromptName = prompt.name
+                editPromptContent = prompt.content
+                showingEditor = true
+            } label: {
                 Label("编辑", systemImage: "pencil")
             }
             .tint(.orange)
@@ -198,23 +213,6 @@ struct SettingsView: View {
         for index in offsets {
             settings.deletePrompt(id: settings.prompts[index].id)
         }
-    }
-}
-
-// MARK: - Prompt Editor State (for NavigationLink value)
-
-struct PromptEditorState: Hashable, Identifiable {
-    let id: UUID?  // nil = new prompt
-    let name: String
-    let content: String
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-        hasher.combine(name)
-    }
-
-    static func == (lhs: PromptEditorState, rhs: PromptEditorState) -> Bool {
-        lhs.id == rhs.id && lhs.name == rhs.name
     }
 }
 
