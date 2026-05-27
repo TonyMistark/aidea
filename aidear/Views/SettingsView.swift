@@ -7,6 +7,9 @@ struct SettingsView: View {
     @State private var apiBaseURL: String
     @State private var modelName: String
 
+    // Delete confirmation
+    @State private var promptToDelete: UUID?
+
     init() {
         let defaults = UserDefaults.standard
         _apiKey = State(initialValue: defaults.string(forKey: "api_key") ?? "")
@@ -61,7 +64,11 @@ struct SettingsView: View {
                 promptSection
             }
             .navigationDestination(for: PromptEditorState.self) { state in
-                promptEditor(state: state)
+                PromptEditView(
+                    editingID: state.id,
+                    initialName: state.name,
+                    initialContent: state.content
+                )
             }
             .navigationTitle("设置")
             .navigationBarTitleDisplayMode(.inline)
@@ -69,6 +76,20 @@ struct SettingsView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("取消") { dismiss() }
                 }
+            }
+            .alert("删除 Prompt", isPresented: Binding(
+                get: { promptToDelete != nil },
+                set: { if !$0 { promptToDelete = nil } }
+            )) {
+                Button("取消", role: .cancel) {}
+                Button("删除", role: .destructive) {
+                    if let id = promptToDelete {
+                        settings.deletePrompt(id: id)
+                        promptToDelete = nil
+                    }
+                }
+            } message: {
+                Text("确定要删除这个 Prompt 吗？此操作不可撤销。")
             }
         }
     }
@@ -78,37 +99,8 @@ struct SettingsView: View {
     private var promptSection: some View {
         Section {
             ForEach(settings.prompts) { prompt in
-                HStack(spacing: 12) {
-                    // Tap circle to set active
-                    Button {
-                        settings.activePromptID = prompt.id
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    } label: {
-                        Image(systemName: prompt.id == settings.activePromptID
-                              ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(prompt.id == settings.activePromptID
-                                             ? .blue : .secondary)
-                            .font(.body)
-                    }
-                    .buttonStyle(.plain)
-
-                    NavigationLink(
-                        value: PromptEditorState(id: prompt.id, name: prompt.name, content: prompt.content)
-                    ) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(prompt.name)
-                                .font(.body)
-                            Text(String(prompt.content.prefix(50))
-                                 + (prompt.content.count > 50 ? "…" : ""))
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                        }
-                    }
-                    .buttonStyle(.borderless)
-                }
+                promptRow(prompt: prompt)
             }
-            .onDelete(perform: deletePrompts)
 
             NavigationLink(
                 value: PromptEditorState(id: nil, name: "", content: "")
@@ -118,21 +110,88 @@ struct SettingsView: View {
         } header: {
             Text("AI Prompt")
         } footer: {
-            Text("点击设为当前生效的 Prompt。点击  ✏️  编辑。左滑删除。")
+            Text("点击设为当前生效的 Prompt。左滑可复制、编辑、删除。")
         }
     }
 
-    // MARK: - Prompt Editor (pushed via NavigationLink)
+    private func promptRow(prompt: PromptItem) -> some View {
+        HStack(spacing: 10) {
+            // Active indicator
+            Image(systemName: prompt.id == settings.activePromptID
+                  ? "checkmark.circle.fill" : "circle")
+                .foregroundColor(prompt.id == settings.activePromptID
+                                 ? .blue : .secondary)
+                .font(.body)
+                .animation(.spring(response: 0.3, blendDuration: 0.2), value: settings.activePromptID)
 
-    private func promptEditor(state: PromptEditorState) -> some View {
-        PromptEditView(
-            editingID: state.id,
-            initialName: state.name,
-            initialContent: state.content
-        )
+            // Tap area for selection
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(prompt.name)
+                        .font(.body)
+
+                    if let source = promptSource(from: prompt.name) {
+                        Text("（\(source)）")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                Text(String(prompt.content.prefix(50))
+                     + (prompt.content.count > 50 ? "…" : ""))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            settings.activePromptID = prompt.id
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            // Copy
+            Button {
+                copyPrompt(prompt: prompt)
+            } label: {
+                Label("复制", systemImage: "doc.on.doc")
+            }
+            .tint(.blue)
+
+            // Edit
+            NavigationLink(
+                value: PromptEditorState(id: prompt.id, name: prompt.name, content: prompt.content)
+            ) {
+                Label("编辑", systemImage: "pencil")
+            }
+            .tint(.orange)
+
+            // Delete
+            Button {
+                promptToDelete = prompt.id
+            } label: {
+                Label("删除", systemImage: "trash")
+            }
+            .tint(.red)
+        }
     }
 
-    // MARK: - Delete
+    private func copyPrompt(prompt: PromptItem) {
+        let copyCount = settings.prompts.filter { $0.name == prompt.name }.count
+        let suffix = copyCount > 0 ? " 副本" : " 副本"
+        let newName = prompt.name + suffix
+        settings.addPrompt(name: newName, content: prompt.content)
+    }
+
+    private func promptSource(from name: String) -> String? {
+        if name.hasSuffix(" 副本") { return "副本" }
+        return nil
+    }
+
+    // MARK: - Delete (legacy, not used with swipe)
 
     private func deletePrompts(at offsets: IndexSet) {
         guard settings.prompts.count > 1 else { return }
@@ -159,7 +218,7 @@ struct PromptEditorState: Hashable, Identifiable {
     }
 }
 
-// MARK: - Prompt Edit View (pushed, not sheet)
+// MARK: - Prompt Edit View (pushed via NavigationLink)
 
 struct PromptEditView: View {
     let editingID: UUID?
