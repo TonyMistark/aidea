@@ -68,7 +68,7 @@ final class GenerationService {
     // MARK: - System prompt (from user settings)
 
     private var systemPrompt: String {
-        settings.customPrompt
+        settings.activePromptContent
     }
 
     // MARK: - Mock generation (for demo without API key)
