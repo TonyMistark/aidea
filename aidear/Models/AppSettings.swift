@@ -30,23 +30,27 @@ final class AppSettings: ObservableObject {
         self.modelName = UserDefaults.standard.string(forKey: "model_name") ?? "gpt-4o"
 
         // Load prompts — migrate from old single-prompt format
+        let loadedPrompts: [PromptItem]
         if let data = UserDefaults.standard.data(forKey: "prompts"),
            let decoded = try? JSONDecoder().decode([PromptItem].self, from: data),
            !decoded.isEmpty {
-            self.prompts = decoded
+            loadedPrompts = decoded
         } else if let oldPrompt = UserDefaults.standard.string(forKey: "custom_prompt") {
-            self.prompts = [PromptItem(name: "默认", content: oldPrompt)]
+            loadedPrompts = [PromptItem(name: "默认", content: oldPrompt)]
         } else {
-            self.prompts = [PromptItem(name: "默认", content: Self.defaultPrompt)]
+            loadedPrompts = [PromptItem(name: "默认", content: Self.defaultPrompt)]
         }
 
+        // Compute active prompt ID before assigning
+        var loadedActiveID: UUID = loadedPrompts[0].id
         if let idString = UserDefaults.standard.string(forKey: "active_prompt_id"),
            let id = UUID(uuidString: idString),
-           self.prompts.contains(where: { $0.id == id }) {
-            self.activePromptID = id
-        } else {
-            self.activePromptID = self.prompts[0].id
+           loadedPrompts.contains(where: { $0.id == id }) {
+            loadedActiveID = id
         }
+
+        self.prompts = loadedPrompts
+        self.activePromptID = loadedActiveID
     }
 
     var isConfigured: Bool { !apiKey.isEmpty }

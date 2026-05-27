@@ -12,12 +12,14 @@
 		5370C0E246E947B1BF1F44C8 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1F14D700BF040F3B78946D7 /* SettingsView.swift */; };
 		73B7CB621FB84880AA738DB4 /* GenerationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3ED1F3AB9EB4B31AADD86E0 /* GenerationService.swift */; };
 		AA12D66FE5FC4D719197BFFC /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02ACE5AFAF8442FA8539A73A /* AppSettings.swift */; };
+		BB21D8A9C3F74E2B9D456F0A /* PromptItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC32E8B1D4A84F3CA5B67E1D /* PromptItem.swift */; };
 		EC1FF551E56E46C0A544026B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ED2691C79534B96A987A270 /* ContentView.swift */; };
 		F1A2B3C4D5E6F7A8B9C0D1E2 /* MarkdownWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7A8B9C0D1E3 /* MarkdownWebView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		02ACE5AFAF8442FA8539A73A /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		CC32E8B1D4A84F3CA5B67E1D /* PromptItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptItem.swift; sourceTree = "<group>"; };
 		0D2A96CAE5B94A5FB91C8B53 /* aidearApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = aidearApp.swift; sourceTree = "<group>"; };
 		9ED2691C79534B96A987A270 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A1F909B0AFD740A8A7569475 /* aidear.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = aidear.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -62,6 +64,7 @@
 			isa = PBXGroup;
 			children = (
 				02ACE5AFAF8442FA8539A73A /* AppSettings.swift */,
+				CC32E8B1D4A84F3CA5B67E1D /* PromptItem.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -157,6 +160,7 @@
 				AA12D66FE5FC4D719197BFFC /* AppSettings.swift in Sources */,
 				73B7CB621FB84880AA738DB4 /* GenerationService.swift in Sources */,
 				F1A2B3C4D5E6F7A8B9C0D1E2 /* MarkdownWebView.swift in Sources */,
+				BB21D8A9C3F74E2B9D456F0A /* PromptItem.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
