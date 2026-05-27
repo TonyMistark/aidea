@@ -10,8 +10,18 @@ final class AppSettings: ObservableObject {
     @Published var modelName: String {
         didSet { UserDefaults.standard.set(modelName, forKey: "model_name") }
     }
-    @Published var customPrompt: String {
-        didSet { UserDefaults.standard.set(customPrompt, forKey: "custom_prompt") }
+
+    // MARK: - Multi-prompt
+
+    @Published var prompts: [PromptItem] {
+        didSet { savePrompts() }
+    }
+    @Published var activePromptID: UUID {
+        didSet { UserDefaults.standard.set(activePromptID.uuidString, forKey: "active_prompt_id") }
+    }
+
+    var activePromptContent: String {
+        prompts.first(where: { $0.id == activePromptID })?.content ?? Self.defaultPrompt
     }
 
     init() {
@@ -19,18 +29,48 @@ final class AppSettings: ObservableObject {
         self.apiBaseURL = UserDefaults.standard.string(forKey: "api_base_url") ?? "https://api.openai.com/v1"
         self.modelName = UserDefaults.standard.string(forKey: "model_name") ?? "gpt-4o"
 
-        let defaultPrompt = Self.defaultPrompt
-        self.customPrompt = UserDefaults.standard.string(forKey: "custom_prompt") ?? defaultPrompt
+        // Load prompts — migrate from old single-prompt format
+        if let data = UserDefaults.standard.data(forKey: "prompts"),
+           let decoded = try? JSONDecoder().decode([PromptItem].self, from: data),
+           !decoded.isEmpty {
+            self.prompts = decoded
+        } else if let oldPrompt = UserDefaults.standard.string(forKey: "custom_prompt") {
+            self.prompts = [PromptItem(name: "默认", content: oldPrompt)]
+        } else {
+            self.prompts = [PromptItem(name: "默认", content: Self.defaultPrompt)]
+        }
+
+        if let idString = UserDefaults.standard.string(forKey: "active_prompt_id"),
+           let id = UUID(uuidString: idString),
+           self.prompts.contains(where: { $0.id == id }) {
+            self.activePromptID = id
+        } else {
+            self.activePromptID = self.prompts[0].id
+        }
     }
 
     var isConfigured: Bool { !apiKey.isEmpty }
 
-    /// 恢复默认 AI prompt
-    func resetPromptToDefault() {
-        customPrompt = Self.defaultPrompt
+    @discardableResult
+    func addPrompt(name: String, content: String) -> UUID {
+        let item = PromptItem(name: name, content: content)
+        prompts.append(item)
+        return item.id
     }
 
-    /// 内置默认 AI system prompt
+    func deletePrompt(id: UUID) {
+        prompts.removeAll { $0.id == id }
+        if !prompts.contains(where: { $0.id == activePromptID }), let first = prompts.first {
+            activePromptID = first.id
+        }
+    }
+
+    private func savePrompts() {
+        if let data = try? JSONEncoder().encode(prompts) {
+            UserDefaults.standard.set(data, forKey: "prompts")
+        }
+    }
+
     static let defaultPrompt = """
     你是一个专业的微信公众号文章写手。你的任务是将用户提供的零散想法、关键词或短句，扩展成一篇结构完整、可读性强、适合手机阅读的公众号文章。
 
