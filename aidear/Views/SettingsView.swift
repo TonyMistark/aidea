@@ -10,11 +10,8 @@ struct SettingsView: View {
     // Delete confirmation
     @State private var promptToDelete: UUID?
 
-    // Edit sheet
-    @State private var editPromptID: UUID?
-    @State private var editPromptName = ""
-    @State private var editPromptContent = ""
-    @State private var showingEditor = false
+    // Edit sheet — single Identifiable to avoid race condition
+    @State private var editingItem: PromptEditItem?
 
     init() {
         let defaults = UserDefaults.standard
@@ -90,12 +87,12 @@ struct SettingsView: View {
             } message: {
                 Text("确定要删除这个 Prompt 吗？此操作不可撤销。")
             }
-            .sheet(isPresented: $showingEditor) {
+            .sheet(item: $editingItem) { item in
                 NavigationStack {
                     PromptEditView(
-                        editingID: editPromptID,
-                        initialName: editPromptName,
-                        initialContent: editPromptContent
+                        editingID: item.id,
+                        initialName: item.name,
+                        initialContent: item.content
                     )
                 }
                 .presentationDetents([.large])
@@ -112,10 +109,7 @@ struct SettingsView: View {
             }
 
             Button {
-                editPromptID = nil
-                editPromptName = ""
-                editPromptContent = ""
-                showingEditor = true
+                editingItem = PromptEditItem(id: nil, name: "", content: "")
             } label: {
                 Label("添加 Prompt", systemImage: "plus.circle")
             }
@@ -175,10 +169,7 @@ struct SettingsView: View {
 
             // Edit
             Button {
-                editPromptID = prompt.id
-                editPromptName = prompt.name
-                editPromptContent = prompt.content
-                showingEditor = true
+                editingItem = PromptEditItem(id: prompt.id, name: prompt.name, content: prompt.content)
             } label: {
                 Label("编辑", systemImage: "pencil")
             }
@@ -216,7 +207,15 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Prompt Edit View (pushed via NavigationLink)
+// MARK: - Sheet item wrapper
+
+struct PromptEditItem: Identifiable {
+    let id: UUID?  // nil = new prompt
+    let name: String
+    let content: String
+}
+
+// MARK: - Prompt Edit View
 
 struct PromptEditView: View {
     let editingID: UUID?
