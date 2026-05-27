@@ -215,11 +215,12 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 16) {
             Divider()
 
-            // Title
+            // Title — selectable & copyable
             if !result.title.isEmpty {
                 Text(result.title)
                     .font(.title2)
                     .fontWeight(.bold)
+                    .textSelection(.enabled)
             }
 
             // Summary
@@ -251,6 +252,19 @@ struct ContentView: View {
                 }
             }
 
+            // Cover image prompt — moved up after summary
+            if !result.coverImagePrompt.isEmpty {
+                coverPromptSection(result.coverImagePrompt)
+            }
+
+            // Action buttons — grouped with copy operations
+            HStack(spacing: 12) {
+                copyButton(result)
+                shareButton(result)
+            }
+
+            Divider()
+
             // Article content — rendered as WeChat-styled HTML via md2wechat CSS
             MarkdownWebView(
                 markdown: result.content,
@@ -260,18 +274,6 @@ struct ContentView: View {
                 copyTrigger: copyHTMLTrigger
             )
             .frame(height: max(webContentHeight, 100))
-
-            // Cover image prompt
-            if !result.coverImagePrompt.isEmpty {
-                Divider()
-                coverPromptSection(result.coverImagePrompt)
-            }
-
-            // Action buttons
-            HStack(spacing: 12) {
-                copyButton(result)
-                shareButton(result)
-            }
         }
     }
 
