@@ -162,10 +162,10 @@ struct ContentView: View {
                 if isGenerating {
                     ProgressView()
                         .tint(.white)
-                    Text("正在生成... \(elapsedSeconds)s")
+                    Text("AI创作中(\(elapsedSeconds)s)")
                 } else if inputMode == .aiGenerate {
                     Image(systemName: "sparkles")
-                    Text(result != nil ? "重新生成" : "AI 生成文章")
+                    Text(result != nil ? "重新生成" : "开始AI创作")
                 } else {
                     Image(systemName: "arrow.triangle.2.circlepath")
                     Text(result != nil ? "重新转换" : "转换")
@@ -384,6 +384,8 @@ struct ContentView: View {
                 }
             } catch is CancellationError {
                 errorMessage = "已取消生成"
+            } catch let error as URLError where error.code == .cancelled {
+                errorMessage = "已取消生成"
             } catch {
                 errorMessage = error.localizedDescription
             }
@@ -399,18 +401,23 @@ struct ContentView: View {
 
         let lines = inputText.split(separator: "\n", omittingEmptySubsequences: false)
         var title = ""
-        if let firstLine = lines.first?.trimmingCharacters(in: .whitespaces),
-           firstLine.hasPrefix("# ") {
-            title = String(firstLine.dropFirst(2))
-        } else if let firstLine = lines.first?.trimmingCharacters(in: .whitespaces),
-                  firstLine.hasPrefix("#") {
-            title = String(firstLine.dropFirst(1))
+        var content = inputText  // 默认全文
+
+        if let firstLine = lines.first {
+            let trimmed = firstLine.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("# ") {
+                title = String(trimmed.dropFirst(2))
+                content = lines.dropFirst().joined(separator: "\n")
+            } else if trimmed.hasPrefix("#") {
+                title = String(trimmed.dropFirst(1))
+                content = lines.dropFirst().joined(separator: "\n")
+            }
         }
 
         result = GenerationResult(
             title: title,
             summary: "",
-            content: inputText,
+            content: content,
             coverImagePrompt: ""
         )
 
