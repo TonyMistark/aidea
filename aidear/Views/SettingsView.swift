@@ -8,6 +8,7 @@ struct SettingsView: View {
     @State private var modelName: String
 
     // Prompt editing state
+    @State private var showingEditor = false
     @State private var editingPromptID: UUID?
     @State private var editName = ""
     @State private var editContent = ""
@@ -119,6 +120,7 @@ struct SettingsView: View {
 
             Button {
                 startNewPrompt()
+                showingEditor = true
             } label: {
                 Label("添加 Prompt", systemImage: "plus.circle")
             }
@@ -127,10 +129,7 @@ struct SettingsView: View {
         } footer: {
             Text("点击设为当前生效的 Prompt。点击  ✏️  编辑。左滑删除。")
         }
-        .sheet(isPresented: Binding(
-            get: { editingPromptID != nil },
-            set: { if !$0 { editingPromptID = nil } }
-        )) {
+        .sheet(isPresented: $showingEditor) {
             promptEditorSheet
         }
     }
@@ -171,11 +170,15 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("取消") { editingPromptID = nil }
+                    Button("取消") {
+                        showingEditor = false
+                        editingPromptID = nil
+                    }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("保存") {
                         saveEditingPrompt()
+                        showingEditor = false
                         editingPromptID = nil
                     }
                     .disabled(editName.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -195,6 +198,7 @@ struct SettingsView: View {
     // MARK: - Prompt Actions
 
     private func startEditing(prompt: PromptItem) {
+        showingEditor = true
         editingPromptID = prompt.id
         editName = prompt.name
         editContent = prompt.content
