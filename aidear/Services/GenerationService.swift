@@ -44,24 +44,49 @@ final class GenerationService {
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        // Check HTTP status code first
+        if let httpResponse = response as? HTTPURLResponse,
+           httpResponse.statusCode != 200 {
+            let errorJSON = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])
+            let apiMessage = (errorJSON?["error"] as? [String: Any])?["message"] as? String
+                ?? String(data: data, encoding: .utf8) ?? "未知错误"
+            throw NSError(domain: "Aidear", code: httpResponse.statusCode,
+                         userInfo: [NSLocalizedDescriptionKey: "API 错误 (\(httpResponse.statusCode)): \(apiMessage)"])
+        }
+
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
 
         guard let choices = json?["choices"] as? [[String: Any]],
               let message = choices.first?["message"] as? [String: Any],
-              let contentStr = message["content"] as? String,
-              let contentData = contentStr.data(using: .utf8),
-              let result = try? JSONDecoder().decode(GenerationResultJSON.self, from: contentData)
+              let contentStr = message["content"] as? String
         else {
+            let body = String(data: data, encoding: .utf8) ?? ""
             throw NSError(domain: "Aidear", code: -1,
-                         userInfo: [NSLocalizedDescriptionKey: "AI 返回格式异常，请重试"])
+                         userInfo: [NSLocalizedDescriptionKey: "AI 返回格式异常，未找到 choices/message"])
+        }
+
+        guard let contentData = contentStr.data(using: .utf8) else {
+            throw NSError(domain: "Aidear", code: -1,
+                         userInfo: [NSLocalizedDescriptionKey: "AI 返回内容编码失败"])
+        }
+
+        let decoder = JSONDecoder()
+        let genResult: GenerationResultJSON
+        do {
+            genResult = try decoder.decode(GenerationResultJSON.self, from: contentData)
+        } catch {
+            // Surface the actual decode error + raw content for diagnosis
+            throw NSError(domain: "Aidear", code: -1,
+                         userInfo: [NSLocalizedDescriptionKey: "AI 返回 JSON 解析失败: \(error.localizedDescription)\n\n原始内容: \(String(contentStr.prefix(300)))"])
         }
 
         return GenerationResult(
-            title: result.title,
-            summary: result.summary,
-            content: result.content,
-            coverImagePrompt: result.cover_image_prompt
+            title: genResult.title,
+            summary: genResult.summary,
+            content: genResult.content,
+            coverImagePrompt: genResult.cover_image_prompt
         )
     }
 
