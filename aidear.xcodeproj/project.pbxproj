@@ -14,7 +14,9 @@
 		AA12D66FE5FC4D719197BFFC /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02ACE5AFAF8442FA8539A73A /* AppSettings.swift */; };
 		BB21D8A9C3F74E2B9D456F0A /* PromptItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC32E8B1D4A84F3CA5B67E1D /* PromptItem.swift */; };
 		EC1FF551E56E46C0A544026B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ED2691C79534B96A987A270 /* ContentView.swift */; };
-		F1A2B3C4D5E6F7A8B9C0D1E2 /* MarkdownWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7A8B9C0D1E3 /* MarkdownWebView.swift */; };
+		F1A2B3C4D5E6F7A8B9C0D1E2 /* MarkdownWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7A8B9C0D1E3 /* MarkdownWebView.swift */; };		A1B2C3D4E5F60001A1B2C3D4 /* TaskManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E60001F1A2B3C4 /* TaskManager.swift */; };
+		A1B2C3D4E5F60002A1B2C3D5 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E60002F1A2B3C5 /* Theme.swift */; };
+		A1B2C3D4E5F60003A1B2C3D6 /* RichTextParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E60003F1A2B3C6 /* RichTextParser.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -26,7 +28,9 @@
 		A6F46BB7F5744018841EAF2B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D1F14D700BF040F3B78946D7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		E3ED1F3AB9EB4B31AADD86E0 /* GenerationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerationService.swift; sourceTree = "<group>"; };
-		F1A2B3C4D5E6F7A8B9C0D1E3 /* MarkdownWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownWebView.swift; sourceTree = "<group>"; };
+		F1A2B3C4D5E6F7A8B9C0D1E3 /* MarkdownWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownWebView.swift; sourceTree = "<group>"; };		F1A2B3C4D5E60001F1A2B3C4 /* TaskManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskManager.swift; sourceTree = "<group>"; };
+		F1A2B3C4D5E60002F1A2B3C5 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		F1A2B3C4D5E60003F1A2B3C6 /* RichTextParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RichTextParser.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -65,6 +69,8 @@
 			children = (
 				02ACE5AFAF8442FA8539A73A /* AppSettings.swift */,
 				CC32E8B1D4A84F3CA5B67E1D /* PromptItem.swift */,
+				F1A2B3C4D5E60001F1A2B3C4 /* TaskManager.swift */,
+				F1A2B3C4D5E60002F1A2B3C5 /* Theme.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -73,6 +79,7 @@
 			isa = PBXGroup;
 			children = (
 				E3ED1F3AB9EB4B31AADD86E0 /* GenerationService.swift */,
+				F1A2B3C4D5E60003F1A2B3C6 /* RichTextParser.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -161,6 +168,9 @@
 				73B7CB621FB84880AA738DB4 /* GenerationService.swift in Sources */,
 				F1A2B3C4D5E6F7A8B9C0D1E2 /* MarkdownWebView.swift in Sources */,
 				BB21D8A9C3F74E2B9D456F0A /* PromptItem.swift in Sources */,
+				A1B2C3D4E5F60001A1B2C3D4 /* TaskManager.swift in Sources */,
+				A1B2C3D4E5F60002A1B2C3D5 /* Theme.swift in Sources */,
+				A1B2C3D4E5F60003A1B2C3D6 /* RichTextParser.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
