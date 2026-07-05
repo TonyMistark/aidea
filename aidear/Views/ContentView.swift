@@ -167,7 +167,7 @@ struct ContentView: View {
                 .foregroundColor(.secondary)
 
             TextEditor(text: $inputText)
-                .frame(minHeight: result != nil ? 100 : 150)
+                .frame(minHeight: 100, maxHeight: 200)
                 .padding(12)
                 .background(Color(.systemGray6))
                 .cornerRadius(12)
