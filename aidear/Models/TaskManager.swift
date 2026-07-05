@@ -191,11 +191,11 @@ final class TaskManager: ObservableObject {
         if runningCount < concurrentLimit {
             if let pendingIndex = tasks.firstIndex(where: { $0.status == .pending }) {
                 tasks[pendingIndex].status = .running
-                
+                let task = tasks[pendingIndex]
+
                 // Execute immediately on current thread (background)
                 Task.detached(priority: .userInitiated) { [weak self] in
                     guard let self = self else { return }
-                    let task = self.tasks[pendingIndex]
                     
                     // Import settings for API access
                     let settings = AppSettings()

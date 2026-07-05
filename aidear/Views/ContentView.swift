@@ -60,8 +60,11 @@ struct ContentView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, result != nil && !inputExpanded ? 16 : 16)
-                    .contentShape(Rectangle())
-                    .onTapGesture { dismissKeyboard() }
+                    .background(
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .onTapGesture { dismissKeyboard() }
+                    )
                 }
             }
             .scrollDismissesKeyboard(.immediately)
@@ -598,6 +601,7 @@ struct ContentView: View {
     private func generate() {
         errorMessage = nil
         showCoverPrompt = false
+        isGenerating = true
 
         let task = taskManager.enqueue(
             input: inputText,
@@ -692,17 +696,28 @@ struct ContentView: View {
     }
 
     private var taskListSheet: some View {
-        NavigationStack {
-            Group {
-                if taskManager.tasks.isEmpty {
-                    ContentUnavailableView(
-                        "暂无任务",
-                        systemImage: "clock.badge.exclamationmark",
-                        description: Text("点击「开始AI创作」即可发起生成任务")
-                    )
-                } else {
-                    List {
-                        ForEach(taskManager.tasks) { task in
+        VStack(spacing: 0) {
+            // Custom header
+            HStack {
+                Text("任务列表")
+                    .font(.headline)
+                Spacer()
+                Button("完成") { showTaskList = false }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+
+            if taskManager.tasks.isEmpty {
+                Spacer()
+                ContentUnavailableView(
+                    "暂无任务",
+                    systemImage: "clock.badge.exclamationmark",
+                    description: Text("点击「开始AI创作」即可发起生成任务")
+                )
+                Spacer()
+            } else {
+                List {
+                    ForEach(taskManager.tasks) { task in
                             VStack(alignment: .leading, spacing: 6) {
                                 HStack {
                                     Text(task.title)
@@ -739,14 +754,25 @@ struct ContentView: View {
                                     .disabled(task.status != .completed || task.result == nil)
                                     
                                     if task.status == .running {
-                                        Menu("操作") {
-                                            Button("取消") { taskManager.cancelTask(id: task.id) }
+                                        Button("取消") {
+                                            taskManager.cancelTask(id: task.id)
                                         }
+                                        .buttonStyle(.bordered)
+                                        .controlSize(.small)
+                                        Button("取消并删除", role: .destructive) {
+                                            withAnimation { taskManager.deleteTask(id: task.id) }
+                                        }
+                                        .buttonStyle(.bordered)
+                                        .controlSize(.small)
+                                        .tint(.red)
                                     }
-                                    if task.status != .running && task.status != .pending {
-                                        Menu("操作") {
-                                            Button("删除") { taskManager.deleteTask(id: task.id) }
+                                    if task.status != .running {
+                                        Button("删除", role: .destructive) {
+                                            withAnimation { taskManager.deleteTask(id: task.id) }
                                         }
+                                        .buttonStyle(.bordered)
+                                        .controlSize(.small)
+                                        .tint(.red)
                                     }
                                 }
                             }
@@ -767,13 +793,5 @@ struct ContentView: View {
                     }
                 }
             }
-            .navigationTitle("任务列表")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") { showTaskList = false }
-                }
-            }
         }
     }
-}
