@@ -358,7 +358,7 @@ final class RichTextParser {
             
             // Add separator after first row (header)
             if i == 0 && rows.count > 1 {
-                result += "|" + cells.map { "-----" }.joined(separator: "|") + "|\n"
+                result += "|" + cells.map { _ in "-----" }.joined(separator: "|") + "|\n"
             }
         }
         return result

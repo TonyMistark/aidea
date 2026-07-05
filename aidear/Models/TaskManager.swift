@@ -133,6 +133,13 @@ final class TaskManager: ObservableObject {
         newlyCompletedIDs.removeAll()
     }
     
+    /// Update the theme for a specific task
+    @MainActor
+    func setTaskTheme(id: UUID, themeID: String) {
+        guard let index = tasks.firstIndex(where: { $0.id == id }) else { return }
+        tasks[index].selectedThemeID = themeID
+    }
+    
     // MARK: - Internal (called by GenerationService via delegate)
     
     @MainActor

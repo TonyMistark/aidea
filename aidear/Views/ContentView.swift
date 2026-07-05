@@ -456,9 +456,7 @@ struct ContentView: View {
                         ThemeManager.shared.setTheme(id: theme.id)
                         // If viewing a result, also update that task's theme
                         if let taskId = currentTaskID {
-                            if let idx = taskManager.tasks.firstIndex(where: { $0.id == taskId }) {
-                                taskManager.tasks[idx].selectedThemeID = theme.id
-                            }
+                            taskManager.setTaskTheme(id: taskId, themeID: theme.id)
                         }
                     } label: {
                         HStack(spacing: 12) {
