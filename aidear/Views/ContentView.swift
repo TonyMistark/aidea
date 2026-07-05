@@ -806,6 +806,16 @@ struct ContentView: View {
                                     .font(.caption2)
                                     .foregroundColor(task.status == .failed ? .red
                                         : (task.status == .running ? .blue : .secondary))
+                                Text(task.inputMode == .aiGenerate ? "AI" : "转换")
+                                    .font(.system(size: 9, weight: .medium))
+                                    .foregroundColor(task.inputMode == .aiGenerate ? .blue : .secondary)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 1)
+                                    .background(
+                                        (task.inputMode == .aiGenerate ? Color.blue : Color.gray)
+                                            .opacity(0.1)
+                                    )
+                                    .cornerRadius(3)
                                 Spacer()
                                 if task.status == .running {
                                     Button("取消") {
