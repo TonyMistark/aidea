@@ -95,6 +95,15 @@ struct ContentView: View {
                 }
             }
             .scrollDismissesKeyboard(.immediately)
+            .simultaneousGesture(
+                DragGesture()
+                    .onEnded { value in
+                        let h = value.translation.width
+                        if !showTaskList, h > 60, abs(h) > abs(value.translation.height) {
+                            showTaskList = true
+                        }
+                    }
+            )
             .navigationTitle("Aidear")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
