@@ -771,6 +771,7 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
+                .contentShape(Rectangle())
                 .background(currentTaskID == nil ? Color.blue.opacity(0.1) : Color.clear)
                 .cornerRadius(8)
             }
