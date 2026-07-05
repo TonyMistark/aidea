@@ -23,7 +23,7 @@ struct ContentView: View {
     @State private var pastePreview = ""
     @State private var showPasteSheet = false
     @State private var showThemePicker = false
-    @State private var showTaskList = false
+    @State private var showDrawer = false
     @State private var currentTaskID: UUID?
     @State private var taskToDelete: UUID?
     @State private var watchHandle: Task<Void, Never>?
@@ -34,6 +34,7 @@ struct ContentView: View {
 
     var body: some View {
         NavigationStack {
+            ZStack {
             VStack(spacing: 0) {
                 if result != nil {
                     collapsedInputBar
@@ -73,13 +74,21 @@ struct ContentView: View {
             .navigationTitle("Aidear")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                // Task list button
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button { showTaskList = true } label: {
+                    Button { withAnimation(.easeInOut(duration: 0.2)) { showDrawer = true } } label: {
                         HStack(spacing: 4) {
-                            Image(systemName: taskManager.runningCount > 0
-                                  ? "clock.arrow.circlepath" : "list.bullet")
-                                .foregroundColor(taskManager.runningCount > 0 ? .blue : .secondary)
+                            Image(systemName: "line.3.horizontal")
+                                .fontWeight(.semibold)
+                            if taskManager.runningCount > 0 {
+                                Text("\(taskManager.runningCount)")
+                                    .font(.caption2)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .background(Color.blue)
+                                    .clipShape(Capsule())
+                            }
                             if taskManager.unreadCompletedCount > 0 {
                                 Text("\(taskManager.unreadCompletedCount)")
                                     .font(.caption2)
@@ -108,9 +117,9 @@ struct ContentView: View {
             .sheet(isPresented: $showThemePicker) {
                 themePickerSheet
             }
-            .sheet(isPresented: $showTaskList) {
-                taskListSheet
-            }
+            // Left drawer overlay
+            drawerOverlay
+            } // ZStack
         }
     }
 
@@ -603,16 +612,18 @@ struct ContentView: View {
     private func generate() {
         errorMessage = nil
         showCoverPrompt = false
-        isGenerating = true
 
-        let task = taskManager.enqueue(
+        taskManager.enqueue(
             input: inputText,
             mode: .aiGenerate,
             promptID: settings.activePromptID,
             themeID: ThemeManager.shared.activeTheme.id
         )
-        currentTaskID = task.id
-        watchTask(id: task.id)
+        // Clear for next conversation — task runs in background
+        inputText = ""
+        result = nil
+        isGenerating = false
+        currentTaskID = nil
     }
 
     private func watchTask(id: UUID) {
@@ -656,40 +667,15 @@ struct ContentView: View {
         result = nil
         showCoverPrompt = false
 
-        let task = taskManager.enqueue(
+        taskManager.enqueue(
             input: inputText,
             mode: .directConvert,
             promptID: settings.activePromptID,
             themeID: ThemeManager.shared.activeTheme.id
         )
-        currentTaskID = task.id
-
-        // Observe for immediate completion (direct convert is fast)
-        Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 300_000_000)
-                
-                guard let t = taskManager.tasks.first(where: { $0.id == task.id }) else { break }
-                
-                switch t.status {
-                case .completed:
-                    if let res = t.result {
-                        result = res
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            inputExpanded = false
-                        }
-                        taskManager.markAsRead()
-                    }
-                case .failed:
-                    errorMessage = t.errorMessage ?? "转换失败"
-                case .cancelled:
-                    break
-                default:
-                    break
-                }
-            }
-            currentTaskID = nil
-        }
+        // Clear for next conversation — result available in drawer
+        inputText = ""
+        isGenerating = false
     }
 
     // MARK: - Task List
@@ -703,137 +689,179 @@ struct ContentView: View {
         return task.selectedThemeID
     }
 
-    private var taskListSheet: some View {
+    // MARK: - Drawer
+
+    private var drawerOverlay: some View {
+        ZStack {
+            if showDrawer {
+                Color.black.opacity(0.3)
+                    .ignoresSafeArea()
+                    .onTapGesture { withAnimation(.easeInOut(duration: 0.2)) { showDrawer = false } }
+                HStack {
+                    drawerContent
+                        .frame(width: 280)
+                        .background(Color(.systemBackground))
+                        .transition(.move(edge: .leading))
+                    Spacer()
+                }
+            }
+        }
+    }
+
+    private var drawerContent: some View {
         VStack(spacing: 0) {
-            // Custom header
+            // Header
             HStack {
-                Text("任务列表")
-                    .font(.headline)
+                Text("对话")
+                    .font(.title3)
+                    .fontWeight(.bold)
                 Spacer()
-                Button("完成") { showTaskList = false }
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.top, 8)
+            .padding(.bottom, 4)
+
+            // New dialog button
+            Button {
+                selectNewDialog()
+            } label: {
+                HStack {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.body)
+                    Text("新对话")
+                        .font(.subheadline)
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(currentTaskID == nil ? Color.blue.opacity(0.1) : Color.clear)
+                .cornerRadius(8)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.bottom, 8)
+
+            Divider()
 
             if taskManager.tasks.isEmpty {
                 Spacer()
-                ContentUnavailableView(
-                    "暂无任务",
-                    systemImage: "clock.badge.exclamationmark",
-                    description: Text("点击「开始AI创作」即可发起生成任务")
-                )
+                Text("暂无对话")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                Text("开始AI创作后自动出现在这里")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
                 Spacer()
             } else {
                 List {
                     ForEach(taskManager.tasks) { task in
-                            VStack(alignment: .leading, spacing: 6) {
-                                HStack {
-                                    Text(task.title)
-                                        .font(.subheadline)
-                                        .lineLimit(1)
-                                    Spacer()
-                                    Text("\(task.elapsedSeconds)s")
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                }
-                                HStack {
-                                    Text(task.statusBadgeText)
-                                        .font(.caption2)
-                                        .foregroundColor(task.status == .failed ? .red : (task.status == .running ? .blue : .secondary))
-                                    
-                                    Text(task.selectedThemeID)
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                    
-                                    Spacer()
-                                    
-                                    Button("查看") {
-                                        inputText = task.inputText
-                                        inputMode = task.inputMode
-                                        errorMessage = nil
-                                        currentTaskID = task.id
-                                        showTaskList = false
-
-                                        switch task.status {
-                                        case .completed:
-                                            result = task.result
-                                            isGenerating = false
-                                            withAnimation(.easeInOut(duration: 0.25)) {
-                                                inputExpanded = false
-                                            }
-                                        case .running:
-                                            result = nil
-                                            isGenerating = true
-                                            elapsedSeconds = task.elapsedSeconds
-                                            inputExpanded = true
-                                            watchTask(id: task.id)
-                                        case .failed:
-                                            result = nil
-                                            isGenerating = false
-                                            errorMessage = task.errorMessage
-                                            inputExpanded = true
-                                        case .cancelled, .pending:
-                                            result = nil
-                                            isGenerating = false
-                                            inputExpanded = true
-                                        }
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(task.title)
+                                    .font(.subheadline)
+                                    .fontWeight(currentTaskID == task.id ? .semibold : .regular)
+                                    .lineLimit(1)
+                                Spacer()
+                            }
+                            HStack {
+                                Text(task.statusBadgeText)
+                                    .font(.caption2)
+                                    .foregroundColor(task.status == .failed ? .red
+                                        : (task.status == .running ? .blue : .secondary))
+                                Spacer()
+                                if task.status == .running {
+                                    Button("取消") {
+                                        taskManager.cancelTask(id: task.id)
                                     }
-                                    .buttonStyle(.borderedProminent)
-                                    .controlSize(.small)
-                                    
-                                    if task.status == .running {
-                                        Button("取消") {
-                                            taskManager.cancelTask(id: task.id)
-                                        }
-                                        .buttonStyle(.bordered)
-                                        .controlSize(.small)
-                                        Button("取消并删除", role: .destructive) {
-                                            taskToDelete = task.id
-                                        }
-                                        .buttonStyle(.bordered)
-                                        .controlSize(.small)
-                                        .tint(.red)
+                                    .font(.caption2)
+                                    .buttonStyle(.plain)
+                                    .foregroundColor(.secondary)
+                                    Button("取消并删除") {
+                                        taskToDelete = task.id
                                     }
-                                    if task.status != .running {
-                                        Button("删除", role: .destructive) {
-                                            taskToDelete = task.id
-                                        }
-                                        .buttonStyle(.bordered)
-                                        .controlSize(.small)
-                                        .tint(.red)
+                                    .font(.caption2)
+                                    .buttonStyle(.plain)
+                                    .foregroundColor(.red)
+                                } else {
+                                    Button {
+                                        taskToDelete = task.id
+                                    } label: {
+                                        Image(systemName: "trash")
+                                            .font(.caption2)
                                     }
+                                    .buttonStyle(.plain)
+                                    .foregroundColor(.secondary)
                                 }
                             }
-                            .padding(.vertical, 4)
                         }
-                    }
-                    .listStyle(.insetGrouped)
-                    
-                    // Clear button for done tasks
-                    if taskManager.tasks.contains(where: { $0.status != .running }) {
-                        Button("清理已完成的任务") {
-                            taskManager.clearDoneTasks()
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 16)
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 4)
+                        .contentShape(Rectangle())
+                        .onTapGesture { selectTask(task) }
+                        .background(
+                            currentTaskID == task.id
+                                ? Color.blue.opacity(0.08)
+                                : Color.clear
+                        )
+                        .cornerRadius(6)
                     }
                 }
-            }
-            .alert("确认删除", isPresented: Binding(
-                get: { taskToDelete != nil },
-                set: { if !$0 { taskToDelete = nil } }
-            )) {
-                Button("取消", role: .cancel) { taskToDelete = nil }
-                Button("删除", role: .destructive) {
-                    if let id = taskToDelete {
-                        withAnimation { taskManager.deleteTask(id: id) }
-                        taskToDelete = nil
-                    }
-                }
-            } message: {
-                Text("此操作不可撤销")
+                .listStyle(.plain)
             }
         }
+        .alert("确认删除", isPresented: Binding(
+            get: { taskToDelete != nil },
+            set: { if !$0 { taskToDelete = nil } }
+        )) {
+            Button("取消", role: .cancel) { taskToDelete = nil }
+            Button("删除", role: .destructive) {
+                if let id = taskToDelete {
+                    withAnimation { taskManager.deleteTask(id: id) }
+                    taskToDelete = nil
+                }
+            }
+        } message: {
+            Text("此操作不可撤销")
+        }
     }
+
+    private func selectNewDialog() {
+        withAnimation(.easeInOut(duration: 0.2)) { showDrawer = false }
+        currentTaskID = nil
+        result = nil
+        errorMessage = nil
+        isGenerating = false
+        inputText = ""
+        inputExpanded = true
+    }
+
+    private func selectTask(_ task: GenerationTask) {
+        withAnimation(.easeInOut(duration: 0.2)) { showDrawer = false }
+        inputText = task.inputText
+        inputMode = task.inputMode
+        errorMessage = nil
+        currentTaskID = task.id
+
+        switch task.status {
+        case .completed:
+            result = task.result
+            isGenerating = false
+            withAnimation(.easeInOut(duration: 0.25)) { inputExpanded = false }
+        case .running:
+            result = nil
+            isGenerating = true
+            elapsedSeconds = task.elapsedSeconds
+            inputExpanded = true
+            watchTask(id: task.id)
+        case .failed:
+            result = nil
+            isGenerating = false
+            errorMessage = task.errorMessage
+            inputExpanded = true
+        case .cancelled, .pending:
+            result = nil
+            isGenerating = false
+            inputExpanded = true
+        }
+    }
+}
