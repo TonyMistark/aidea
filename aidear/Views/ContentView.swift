@@ -1,5 +1,29 @@
 import SwiftUI
 
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 6:
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8:
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (255, 0, 0, 0)
+        }
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue:  Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
+}
+
 enum InputMode: String, CaseIterable, Codable {
     case aiGenerate = "AI 创作"
     case directConvert = "直接转换"
@@ -476,14 +500,14 @@ struct ContentView: View {
                         HStack(spacing: 12) {
                             ZStack {
                                 Circle()
-                                    .fill(Color(theme.previewColors.primary))
+                                    .fill(Color(hex: theme.previewColors.primary))
                                     .frame(width: 36, height: 36)
                                 Circle()
-                                    .fill(Color(theme.previewColors.secondary))
+                                    .fill(Color(hex: theme.previewColors.secondary))
                                     .frame(width: 24, height: 24)
                                     .offset(x: 10, y: 10)
                             }
-                            
+
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(theme.name)
                                     .font(.subheadline)
@@ -491,15 +515,28 @@ struct ContentView: View {
                                     .font(.caption2)
                                     .foregroundColor(.secondary)
                             }
-                            
+
                             Spacer()
-                            
-                            if theme.id == ThemeManager.shared.activeTheme.id {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(Color(theme.previewColors.primary))
+
+                            if theme.id == currentTaskThemeID() {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color(hex: theme.previewColors.primary))
+                                        .frame(width: 22, height: 22)
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundColor(.white)
+                                }
                             }
                         }
                         .padding(.vertical, 4)
+                        .contentShape(Rectangle())
+                        .background(
+                            theme.id == currentTaskThemeID()
+                                ? Color(hex: theme.previewColors.primary).opacity(0.08)
+                                : Color.clear
+                        )
+                        .cornerRadius(8)
                     }
                     .buttonStyle(.plain)
                 }
