@@ -30,8 +30,8 @@ struct GenerationTask: Identifiable, Equatable, Codable {
     }
     
     var title: String {
-        if ((result?.title.isEmpty) == nil) ?? false {
-            return result!.title
+        if let result = result, !result.title.isEmpty {
+            return result.title
         }
         let preview = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         let truncated = preview.count > 30 ? String(preview.prefix(30)) + "…" : preview

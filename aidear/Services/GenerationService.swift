@@ -62,7 +62,7 @@ final class GenerationService {
               let message = choices.first?["message"] as? [String: Any],
               let contentStr = message["content"] as? String
         else {
-            let body = String(data: data, encoding: .utf8) ?? ""
+            _ = String(data: data, encoding: .utf8) ?? ""
             throw NSError(domain: "Aidear", code: -1,
                          userInfo: [NSLocalizedDescriptionKey: "AI 返回格式异常，未找到 choices/message"])
         }

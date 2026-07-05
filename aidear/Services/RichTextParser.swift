@@ -102,7 +102,7 @@ final class RichTextParser {
             "activity-detail", "js_name", "rich_media_content",
             "showswiftpic", "original-content", "wechat-single-item"
         ]
-        for className in wechatClasses {
+        for _ in wechatClasses {
             result = result.replacingOccurrences(
                 of: "\\bclass=[\"'][^\"']*\\(className)[^\"\"]*[\"']",
                 with: "", options: .regularExpression
