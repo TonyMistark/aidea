@@ -2,148 +2,8 @@ import SwiftUI
 import UIKit
 import WebKit
 
-// MARK: - md2wechat CSS (exact copy from default theme)
+// MARK: - highlight.js default theme CSS (inline, matches Pygments default style)
 
-private let md2wechatCSS = """
-body {
-    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC",
-                 "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei",
-                 Arial, sans-serif;
-    font-size: 16px;
-    line-height: 1.8;
-    color: #3f3f3f;
-    padding: 20px 16px;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    background-color: #ffffff;
-    margin: 0;
-    -webkit-text-size-adjust: 100%;
-}
-h1 {
-    font-size: 24px;
-    font-weight: 700;
-    color: #1a1a1a;
-    margin: 32px 0 16px;
-    padding-bottom: 12px;
-    border-bottom: 2px solid #07c160;
-    line-height: 1.4;
-}
-h2 {
-    font-size: 20px;
-    font-weight: 600;
-    color: #1a1a1a;
-    margin: 28px 0 12px;
-    padding-left: 12px;
-    border-left: 4px solid #07c160;
-    line-height: 1.4;
-}
-h3 {
-    font-size: 18px;
-    font-weight: 600;
-    color: #2c2c2c;
-    margin: 24px 0 10px;
-    line-height: 1.4;
-}
-h4 {
-    font-size: 16px;
-    font-weight: 600;
-    color: #444444;
-    margin: 20px 0 8px;
-}
-p {
-    margin: 12px 0;
-    text-align: justify;
-}
-strong {
-    font-weight: 700;
-    color: #07c160;
-}
-em {
-    font-style: italic;
-    color: #555555;
-}
-a {
-    color: #576b95;
-    text-decoration: none;
-    border-bottom: 1px solid #576b95;
-}
-ul, ol {
-    padding-left: 24px;
-    margin: 12px 0;
-}
-li {
-    margin: 6px 0;
-    line-height: 1.8;
-}
-blockquote {
-    margin: 16px 0;
-    padding: 12px 16px;
-    border-left: 4px solid #07c160;
-    background-color: #f7f7f7;
-    color: #666666;
-    font-size: 15px;
-}
-code {
-    font-family: "SF Mono", Menlo, Monaco, Consolas, "Courier New", monospace;
-    font-size: 0.9em;
-    background-color: #f5f5f5;
-    padding: 2px 6px;
-    border-radius: 4px;
-    color: #e83e8c;
-}
-pre {
-    margin: 16px 0;
-    padding: 16px;
-    background-color: #f8f8f8;
-    border-radius: 8px;
-    overflow-x: auto;
-    font-size: 14px;
-    line-height: 1.6;
-    -webkit-overflow-scrolling: touch;
-}
-pre code {
-    background: none;
-    padding: 0;
-    color: #333333;
-    font-size: inherit;
-}
-img {
-    max-width: 100%;
-    height: auto;
-    display: block;
-    margin: 16px auto;
-    border-radius: 6px;
-}
-hr {
-    border: none;
-    border-top: 1px solid #e0e0e0;
-    margin: 24px 0;
-}
-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 16px 0;
-    font-size: 14px;
-    display: block;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-}
-th, td {
-    border: 1px solid #e0e0e0;
-    padding: 10px 12px;
-    text-align: left;
-}
-th {
-    background-color: #f7f7f7;
-    font-weight: 600;
-    color: #333333;
-}
-tr:nth-child(even) {
-    background-color: #fafafa;
-}
-"""
-
-// highlight.js default theme CSS (inline, matches Pygments default style)
 private let highlightJSCSS = """
 .hljs{display:block;overflow-x:auto;padding:0.5em;background:#f8f8f8;color:#333}
 .hljs-comment,.hljs-quote{color:#998;font-style:italic}
@@ -166,7 +26,7 @@ private let highlightJSCSS = """
 
 // MARK: - HTML Template
 
-private let htmlTemplate: String = {
+private func makeHTMLOutline(themeCSS: String) -> String {
     """
     <!DOCTYPE html>
     <html>
@@ -174,7 +34,7 @@ private let htmlTemplate: String = {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-    \(md2wechatCSS)
+    \(themeCSS)
     \(highlightJSCSS)
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
@@ -185,8 +45,19 @@ private let htmlTemplate: String = {
     <script>
     var _queued = null;
     var _lastMd = null;
+    var _loadedThemeCSS = null;
 
-    function renderMarkdown(md) {
+    function renderMarkdown(md, themeCSS) {
+        if (themeCSS && themeCSS !== _loadedThemeCSS) {
+            _loadedThemeCSS = themeCSS;
+            var styleEl = document.getElementById('aidear-theme-css');
+            if (!styleEl) {
+                styleEl = document.createElement('style');
+                styleEl.id = 'aidear-theme-css';
+                document.head.appendChild(styleEl);
+            }
+            styleEl.textContent = themeCSS;
+        }
         if (md === _lastMd) return;
         _lastMd = md;
         if (typeof marked === 'undefined') {
@@ -207,7 +78,6 @@ private let htmlTemplate: String = {
         });
     }
 
-    // Poll until CDN scripts are loaded, then render queued content
     (function poll() {
         if (_queued && typeof marked !== 'undefined') {
             doRender(_queued);
@@ -216,7 +86,6 @@ private let htmlTemplate: String = {
         if (_queued) setTimeout(poll, 80);
     })();
 
-    // Select all rendered content and copy (preserves CSS formatting)
     function copyFormatted() {
         var el = document.getElementById('aidear-content');
         if (!el || !el.textContent.trim()) return false;
@@ -235,7 +104,6 @@ private let htmlTemplate: String = {
         }
     }
 
-    // Fallback: send HTML + plain text to Swift for manual pasteboard set
     function getCopyContent() {
         var el = document.getElementById('aidear-content');
         window.webkit.messageHandlers.copyContent.postMessage(JSON.stringify({
@@ -244,21 +112,25 @@ private let htmlTemplate: String = {
         }));
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
-        if (_queued) { doRender(_queued); _queued = null; }
-    });
+    document.addEventListener('DOMContentLoaded', function() {});
     </script>
     </body>
     </html>
     """
-}()
+}
 
 // MARK: - SwiftUI Wrapper
 
 struct MarkdownWebView: UIViewRepresentable {
     let markdown: String
+    var themeID: String = "wechat-green"
     var onHeightChange: ((CGFloat) -> Void)?
     var copyTrigger: Int = 0
+    
+    private var themeCSS: String {
+        ThemeManager.shared.themes.first(where: { $0.id == themeID })?.cssStyles
+            ?? Theme.wechatGreen.cssStyles
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(onHeightChange: onHeightChange)
@@ -287,14 +159,15 @@ struct MarkdownWebView: UIViewRepresentable {
         webView.scrollView.backgroundColor = .clear
 
         context.coordinator.webView = webView
-        webView.loadHTMLString(htmlTemplate, baseURL: URL(string: "https://aidear.app/"))
+        webView.loadHTMLString(makeHTMLOutline(themeCSS: themeCSS), baseURL: URL(string: "https://aidear.app/"))
 
         return webView
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
-        // Handle markdown rendering
+        // Handle markdown rendering + theme switching
         context.coordinator.pendingMarkdown = markdown
+        context.coordinator.pendingThemeID = themeID
         context.coordinator.renderIfReady()
 
         // Handle copy trigger
@@ -309,7 +182,9 @@ struct MarkdownWebView: UIViewRepresentable {
     class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         weak var webView: WKWebView?
         var pendingMarkdown: String?
+        var pendingThemeID: String?
         var lastRendered: String?
+        var lastRenderedThemeID: String?
         var lastCopyTrigger: Int = 0
         var pageLoaded = false
         var onHeightChange: ((CGFloat) -> Void)?
@@ -319,13 +194,22 @@ struct MarkdownWebView: UIViewRepresentable {
         }
 
         func renderIfReady() {
-            guard pageLoaded, let webView, let md = pendingMarkdown, md != lastRendered else { return }
+            guard pageLoaded, let webView, let md = pendingMarkdown,
+                  md != lastRendered || pendingThemeID != lastRenderedThemeID else { return }
             lastRendered = md
+            lastRenderedThemeID = pendingThemeID
+
+            let themeCSS = ThemeManager.shared.themes
+                .first(where: { $0.id == pendingThemeID })?
+                .cssStyles ?? Theme.wechatGreen.cssStyles
 
             guard let jsonData = try? JSONEncoder().encode(md),
                   let jsonString = String(data: jsonData, encoding: .utf8) else { return }
+            guard let cssData = try? JSONEncoder().encode(themeCSS),
+                  let cssString = String(data: cssData, encoding: .utf8) else { return }
 
-            webView.evaluateJavaScript("renderMarkdown(\(jsonString))", completionHandler: nil)
+            // First set the theme CSS, then render markdown
+            webView.evaluateJavaScript("renderMarkdown(\(jsonString), \(cssString))", completionHandler: nil)
         }
 
         func requestCopyHTML() {
@@ -334,7 +218,9 @@ struct MarkdownWebView: UIViewRepresentable {
                     return // execCommand('copy') succeeded, WebKit handles pasteboard
                 }
                 // Fallback: get HTML + text manually
-                self?.webView?.evaluateJavaScript("getCopyContent()", completionHandler: nil)
+                self?.webView?.evaluateJavaScript("getCopyContent()") { _, _ in
+                    // Ignore fallback — execCommand should work
+                }
             }
         }
 
