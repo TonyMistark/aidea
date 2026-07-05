@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum InputMode: String, CaseIterable {
+enum InputMode: String, CaseIterable, Codable {
     case aiGenerate = "AI 创作"
     case directConvert = "直接转换"
 }

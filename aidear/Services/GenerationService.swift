@@ -1,6 +1,6 @@
 import Foundation
 
-struct GenerationResult {
+struct GenerationResult: Codable {
     let title: String
     let summary: String
     let content: String

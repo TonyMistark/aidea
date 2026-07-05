@@ -12,7 +12,7 @@ enum TaskStatus: String, Codable, Sendable {
 
 // MARK: - GenerationTask
 
-struct GenerationTask: Identifiable, Equatable {
+struct GenerationTask: Identifiable, Equatable, Codable {
     let id: UUID
     let inputText: String
     let inputMode: InputMode
