@@ -46,6 +46,7 @@ playground.xcworkspace
 .codebuddy/
 .windsurf/
 .trae/
+.hermes/
 *.aidear.*
 
 # Playground
