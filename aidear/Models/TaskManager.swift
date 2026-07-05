@@ -246,11 +246,16 @@ final class TaskManager: ObservableObject {
     // MARK: - Persistence
     
     private func loadTasks() {
-        // Keep it simple — don't persist across app launches
-        // Tasks are transient; historical results live in ContentView
+        guard let data = UserDefaults.standard.data(forKey: "saved_tasks"),
+              let decoded = try? JSONDecoder().decode([GenerationTask].self, from: data) else {
+            return
+        }
+        tasks = decoded.sorted { $0.createdAt > $1.createdAt } // Newest first
     }
     
     private func saveTasks() {
-        // Transient only
+        if let encoded = try? JSONEncoder().encode(tasks) {
+            UserDefaults.standard.set(encoded, forKey: "saved_tasks")
+        }
     }
 }

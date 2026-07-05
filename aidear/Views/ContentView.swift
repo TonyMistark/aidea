@@ -341,7 +341,7 @@ struct ContentView: View {
             // Article content — rendered as styled HTML via selected theme
             MarkdownWebView(
                 markdown: result.content,
-                themeID: ThemeManager.shared.activeTheme.id,
+                themeID: currentTaskThemeID(),
                 onHeightChange: { h in
                     webContentHeight = h
                 },
@@ -428,7 +428,9 @@ struct ContentView: View {
             HStack(spacing: 8) {
                 Image(systemName: "paintpalette")
                     .font(.caption)
-                Text(ThemeManager.shared.activeTheme.name)
+                Text(currentTaskThemeID() == ThemeManager.shared.activeTheme.id
+                     ? ThemeManager.shared.activeTheme.name
+                     : getThemeName(for: currentTaskThemeID()))
                     .font(.subheadline)
                 Spacer()
             }
@@ -440,6 +442,11 @@ struct ContentView: View {
         }
         .buttonStyle(.plain)
     }
+    
+    /// Get display name for a theme ID (used for per-article themes)
+    private func getThemeName(for id: String) -> String {
+        ThemeManager.shared.themes.first(where: { $0.id == id })?.name ?? "自定义"
+    }
 
     private var themePickerSheet: some View {
         NavigationStack {
@@ -447,6 +454,12 @@ struct ContentView: View {
                 ForEach(ThemeManager.shared.themes) { theme in
                     Button {
                         ThemeManager.shared.setTheme(id: theme.id)
+                        // If viewing a result, also update that task's theme
+                        if let taskId = currentTaskID {
+                            if let idx = taskManager.tasks.firstIndex(where: { $0.id == taskId }) {
+                                taskManager.tasks[idx].selectedThemeID = theme.id
+                            }
+                        }
                     } label: {
                         HStack(spacing: 12) {
                             ZStack {
@@ -591,7 +604,8 @@ struct ContentView: View {
         let task = taskManager.enqueue(
             input: inputText,
             mode: .aiGenerate,
-            promptID: settings.activePromptID
+            promptID: settings.activePromptID,
+            themeID: ThemeManager.shared.activeTheme.id
         )
         currentTaskID = task.id
 
@@ -637,7 +651,8 @@ struct ContentView: View {
         let task = taskManager.enqueue(
             input: inputText,
             mode: .directConvert,
-            promptID: settings.activePromptID
+            promptID: settings.activePromptID,
+            themeID: ThemeManager.shared.activeTheme.id
         )
         currentTaskID = task.id
 
@@ -669,6 +684,15 @@ struct ContentView: View {
 
     // MARK: - Task List
 
+    /// Get theme ID for current result (per-article theme if available, else global)
+    private func currentTaskThemeID() -> String {
+        guard let taskId = currentTaskID,
+              let task = taskManager.tasks.first(where: { $0.id == taskId }) else {
+            return ThemeManager.shared.activeTheme.id
+        }
+        return task.selectedThemeID
+    }
+
     private var taskListSheet: some View {
         NavigationStack {
             Group {
@@ -695,6 +719,10 @@ struct ContentView: View {
                                     Text(task.statusBadgeText)
                                         .font(.caption2)
                                         .foregroundColor(task.status == .failed ? .red : (task.status == .running ? .blue : .secondary))
+                                    
+                                    Text(task.selectedThemeID)
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
                                     
                                     Spacer()
                                     

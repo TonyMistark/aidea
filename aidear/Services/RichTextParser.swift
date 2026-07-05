@@ -38,8 +38,8 @@ final class RichTextParser {
 
     enum Token {
         case text(String)
-        case tagOpen(String)   // <h1, <p, <li, <blockquote, <ul, <ol
-        case tagClose(String)  // </p, </h1
+        case tagOpen(String)   // <h1, <p, <li, <blockquote, <ul, <ol, <table, <tr, <td, <th
+        case tagClose(String)  // </p, </h1, </table, </tr, </td
         case hr               // <hr
         case br               // <br
         case img(src: String) // <img src="..."
@@ -51,6 +51,11 @@ final class RichTextParser {
         var inBlockquote = false
         var listStack: [ListKind] = []
         var needsSeparator = false
+        
+        // Table state
+        var inTable = false
+        var tableRows: [[String]] = []
+        var inHeaderRow = false
     }
 
     private enum ListKind { case ordered, unordered }
@@ -60,6 +65,11 @@ final class RichTextParser {
     private static func convertHTML(_ html: String) -> String {
         // Strip scripts/styles/comments/wrappers
         var h = html
+        
+        // 1. Remove WeChat editor specific wrappers and styles
+        h = stripWeChatEditorStyles(h)
+        
+        // 2. Standard cleanup
         h = h.replacingOccurrences(of: "<style[^>]*>.*?</style>", with: "", options: .regularExpression)
         h = h.replacingOccurrences(of: "<script[^>]*>.*?</script>", with: "", options: .regularExpression)
         let commentPattern = "(?:<!--|//[^\"]*?)-->"
@@ -82,16 +92,74 @@ final class RichTextParser {
         return normalize(ctx.markdown)
     }
 
+    /// Strip WeChat editor specific HTML artifacts
+    private static func stripWeChatEditorStyles(_ html: String) -> String {
+        var result = html
+        
+        // Remove WeChat editor-specific class names
+        let wechatClasses = [
+            "msg_content", "rich_media_area_primary", "rich_media_tool",
+            "activity-detail", "js_name", "rich_media_content",
+            "showswiftpic", "original-content", "wechat-single-item"
+        ]
+        for className in wechatClasses {
+            result = result.replacingOccurrences(
+                of: "\\bclass=[\"'][^\"']*\\(className)[^\"\"]*[\"']",
+                with: "", options: .regularExpression
+            )
+        }
+        
+        // Remove WeChat-specific inline styles (font-family, color, etc.)
+        result = result.replacingOccurrences(
+            of: "style=[\"']font-family:[^;]+;[^\"]*[\"']",
+            with: "", options: .regularExpression
+        )
+        result = result.replacingOccurrences(
+            of: "style=[\"']color:[^;]+;[^\"]*[\"']",
+            with: "", options: .regularExpression
+        )
+        
+        // Normalize WeChat's special line breaks (often uses <br><br> or <p><br></p>)
+        result = result.replacingOccurrences(
+            of: "<br\\s*/?>\\s*<br\\s*/?>",
+            with: "\n\n", options: .regularExpression
+        )
+        
+        // Remove empty paragraphs that WeChat often generates
+        result = result.replacingOccurrences(
+            of: "<p><br\\s*/?></p>",
+            with: "", options: .regularExpression
+        )
+        
+        return result
+    }
+
     private static func process(_ ctx: inout ParseResult, token: Token) {
         switch token {
         case .text(let s):
             handleText(&ctx, text: s)
 
         case .tagOpen(let name):
-            handleTagOpen(&ctx, tag: name)
+            if name.hasPrefix("table") {
+                handleTableOpen(&ctx)
+            } else if name.hasPrefix("tr") {
+                handleRowOpen(&ctx)
+            } else if name.hasPrefix("th") || name.hasPrefix("td") {
+                handleCellOpen(&ctx, isHeader: name.hasPrefix("th"))
+            } else {
+                handleTagOpen(&ctx, tag: name)
+            }
 
         case .tagClose(let name):
-            handleTagClose(&ctx, tag: name)
+            if name.hasPrefix("table") {
+                handleTableClose(&ctx)
+            } else if name.hasPrefix("tr") {
+                handleRowClose(&ctx)
+            } else if name.hasPrefix("th") || name.hasPrefix("td") {
+                handleCellClose(&ctx)
+            } else {
+                handleTagClose(&ctx, tag: name)
+            }
 
         case .hr:
             handleHR(&ctx)
@@ -117,6 +185,12 @@ final class RichTextParser {
         let processed = applyInlineFormat(trimmed)
         // Decode HTML entities
         let final = decodeEntities(processed)
+
+        if ctx.inTable, !ctx.tableRows.isEmpty {
+            // Add to current cell
+            ctx.tableRows[ctx.tableRows.count - 1].append(final)
+            return
+        }
 
         if ctx.inBlockquote {
             appendIfNeeded(&ctx.markdown)
@@ -217,6 +291,77 @@ final class RichTextParser {
 
     private static func handleIMG(_ ctx: inout ParseResult, src: String) {
         // Skip images for now (or could output ![alt](src))
+    }
+
+    // MARK: - Table helpers
+
+    private static func handleTableOpen(_ ctx: inout ParseResult) {
+        finalizePendingHeading(&ctx)
+        ctx.inTable = true
+        ctx.tableRows = []
+        ctx.inHeaderRow = false
+        ctx.needsSeparator = true
+    }
+
+    private static func handleRowOpen(_ ctx: inout ParseResult) {
+        if ctx.inTable {
+            ctx.tableRows.append([])
+            // First row is treated as header
+            ctx.inHeaderRow = ctx.tableRows.count == 1
+        }
+    }
+
+    private static func handleCellOpen(_ ctx: inout ParseResult, isHeader: Bool) {
+        if ctx.inTable, !ctx.tableRows.isEmpty {
+            // Cell content will be accumulated in text handler
+        }
+    }
+
+    private static func handleCellClose(_ ctx: inout ParseResult) {
+        // Cell content already added via text handler
+    }
+
+    private static func handleRowClose(_ ctx: inout ParseResult) {
+        if ctx.inTable, !ctx.tableRows.isEmpty {
+            let lastRow = ctx.tableRows.removeLast()
+            if ctx.inHeaderRow {
+                // Add separator after first row (header)
+                ctx.tableRows.append(lastRow)
+                ctx.tableRows.append(Array(repeating: "---", count: lastRow.count))
+                ctx.inHeaderRow = false
+            } else {
+                ctx.tableRows.append(lastRow)
+            }
+        }
+    }
+
+    private static func handleTableClose(_ ctx: inout ParseResult) {
+        if ctx.inTable, !ctx.tableRows.isEmpty {
+            // Convert rows to Markdown table
+            let mdTable = convertToMarkdownTable(ctx.tableRows)
+            ctx.markdown += mdTable + "\n\n"
+            ctx.tableRows = []
+            ctx.inTable = false
+            ctx.inHeaderRow = false
+            ctx.needsSeparator = false
+        }
+    }
+
+    /// Convert table rows to Markdown table format
+    private static func convertToMarkdownTable(_ rows: [[String]]) -> String {
+        guard !rows.isEmpty else { return "" }
+        
+        var result = ""
+        for (i, row) in rows.enumerated() {
+            let cells = row.map { $0.trimmingCharacters(in: .whitespaces) }
+            result += "| " + cells.joined(separator: " | ") + " |\n"
+            
+            // Add separator after first row (header)
+            if i == 0 && rows.count > 1 {
+                result += "|" + cells.map { "-----" }.joined(separator: "|") + "|\n"
+            }
+        }
+        return result
     }
 
     // MARK: - Heading helpers
@@ -427,6 +572,8 @@ final class RichTextParser {
             } else {
                 tokens.append(.tagOpen("a"))
             }
+        case "table", "tr", "td", "th":
+            tokens.append(.tagOpen(tagName))
         default:
             // Ignore unknown tags (span, font, b, strong, i, em, etc.)
             break
