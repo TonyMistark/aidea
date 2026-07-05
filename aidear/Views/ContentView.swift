@@ -25,6 +25,8 @@ struct ContentView: View {
     @State private var showThemePicker = false
     @State private var showTaskList = false
     @State private var currentTaskID: UUID?
+    @State private var taskToDelete: UUID?
+    @State private var watchHandle: Task<Void, Never>?
 
     private var service: GenerationService {
         GenerationService(settings: settings)
@@ -610,16 +612,18 @@ struct ContentView: View {
             themeID: ThemeManager.shared.activeTheme.id
         )
         currentTaskID = task.id
+        watchTask(id: task.id)
+    }
 
-        // Observe the new task for results via MainActor publishing
-        Task { @MainActor in
-            // Poll task status — if running becomes completed/failed, update UI
+    private func watchTask(id: UUID) {
+        watchHandle?.cancel()
+        watchHandle = Task { @MainActor in
             let interval = 0.5
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
-                
-                guard let t = taskManager.tasks.first(where: { $0.id == task.id }) else { break }
-                
+
+                guard let t = taskManager.tasks.first(where: { $0.id == id }) else { break }
+
                 switch t.status {
                 case .running:
                     isGenerating = true
@@ -635,6 +639,8 @@ struct ContentView: View {
                     isGenerating = false
                 case .failed:
                     errorMessage = t.errorMessage ?? "生成失败"
+                    isGenerating = false
+                case .cancelled:
                     isGenerating = false
                 default:
                     break
@@ -676,6 +682,8 @@ struct ContentView: View {
                     }
                 case .failed:
                     errorMessage = t.errorMessage ?? "转换失败"
+                case .cancelled:
+                    break
                 default:
                     break
                 }
@@ -740,18 +748,38 @@ struct ContentView: View {
                                     Spacer()
                                     
                                     Button("查看") {
-                                        // Show result inline in main content
-                                        if let res = task.result {
-                                            result = res
-                                            showTaskList = false
+                                        inputText = task.inputText
+                                        inputMode = task.inputMode
+                                        errorMessage = nil
+                                        currentTaskID = task.id
+                                        showTaskList = false
+
+                                        switch task.status {
+                                        case .completed:
+                                            result = task.result
+                                            isGenerating = false
                                             withAnimation(.easeInOut(duration: 0.25)) {
                                                 inputExpanded = false
                                             }
+                                        case .running:
+                                            result = nil
+                                            isGenerating = true
+                                            elapsedSeconds = task.elapsedSeconds
+                                            inputExpanded = true
+                                            watchTask(id: task.id)
+                                        case .failed:
+                                            result = nil
+                                            isGenerating = false
+                                            errorMessage = task.errorMessage
+                                            inputExpanded = true
+                                        case .cancelled, .pending:
+                                            result = nil
+                                            isGenerating = false
+                                            inputExpanded = true
                                         }
                                     }
                                     .buttonStyle(.borderedProminent)
                                     .controlSize(.small)
-                                    .disabled(task.status != .completed || task.result == nil)
                                     
                                     if task.status == .running {
                                         Button("取消") {
@@ -760,7 +788,7 @@ struct ContentView: View {
                                         .buttonStyle(.bordered)
                                         .controlSize(.small)
                                         Button("取消并删除", role: .destructive) {
-                                            withAnimation { taskManager.deleteTask(id: task.id) }
+                                            taskToDelete = task.id
                                         }
                                         .buttonStyle(.bordered)
                                         .controlSize(.small)
@@ -768,7 +796,7 @@ struct ContentView: View {
                                     }
                                     if task.status != .running {
                                         Button("删除", role: .destructive) {
-                                            withAnimation { taskManager.deleteTask(id: task.id) }
+                                            taskToDelete = task.id
                                         }
                                         .buttonStyle(.bordered)
                                         .controlSize(.small)
@@ -792,6 +820,20 @@ struct ContentView: View {
                         .padding(.bottom, 16)
                     }
                 }
+            }
+            .alert("确认删除", isPresented: Binding(
+                get: { taskToDelete != nil },
+                set: { if !$0 { taskToDelete = nil } }
+            )) {
+                Button("取消", role: .cancel) { taskToDelete = nil }
+                Button("删除", role: .destructive) {
+                    if let id = taskToDelete {
+                        withAnimation { taskManager.deleteTask(id: id) }
+                        taskToDelete = nil
+                    }
+                }
+            } message: {
+                Text("此操作不可撤销")
             }
         }
     }

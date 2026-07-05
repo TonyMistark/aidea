@@ -74,7 +74,8 @@ final class TaskManager: ObservableObject {
     }
     
     // MARK: - Private
-    
+
+    private var runningHandles: [UUID: Task<Void, Never>] = [:]
     private var savedTasksData: Data? = nil
     
     init() {
@@ -109,7 +110,9 @@ final class TaskManager: ObservableObject {
     func cancelTask(id: UUID) {
         guard let index = tasks.firstIndex(where: { $0.id == id }),
               tasks[index].status == .running || tasks[index].status == .pending else { return }
-        
+
+        runningHandles[id]?.cancel()
+        runningHandles[id] = nil
         tasks[index].status = .cancelled
     }
     
@@ -165,17 +168,21 @@ final class TaskManager: ObservableObject {
     
     @MainActor
     internal func completeTask(_ id: UUID, result: GenerationResult) {
-        guard let index = tasks.firstIndex(where: { $0.id == id }) else { return }
+        guard let index = tasks.firstIndex(where: { $0.id == id }),
+              tasks[index].status == .running else { return }
         tasks[index].status = .completed
         tasks[index].result = result
         newlyCompletedIDs.insert(id)
+        runningHandles[id] = nil
     }
-    
+
     @MainActor
     internal func failTask(_ id: UUID, error: Error) {
-        guard let index = tasks.firstIndex(where: { $0.id == id }) else { return }
+        guard let index = tasks.firstIndex(where: { $0.id == id }),
+              tasks[index].status == .running else { return }
         tasks[index].status = .failed
         tasks[index].errorMessage = error.localizedDescription
+        runningHandles[id] = nil
     }
     
     @MainActor
@@ -194,15 +201,15 @@ final class TaskManager: ObservableObject {
                 let task = tasks[pendingIndex]
 
                 // Execute immediately on current thread (background)
-                Task.detached(priority: .userInitiated) { [weak self] in
+                let handle = Task.detached(priority: .userInitiated) { [weak self] in
                     guard let self = self else { return }
-                    
+
                     // Import settings for API access
                     let settings = AppSettings()
                     let service = GenerationService(settings: settings)
-                    
+
                     await self.startTask(task.id)
-                    
+
                     do {
                         let genResult = try await self.executeTask(task, service: service)
                         await self.completeTask(task.id, result: genResult)
@@ -211,9 +218,10 @@ final class TaskManager: ObservableObject {
                     } catch {
                         await self.failTask(task.id, error: error)
                     }
-                    
+
                     await self.advancePendingTasks()
                 }
+                runningHandles[task.id] = handle
             }
         }
     }
