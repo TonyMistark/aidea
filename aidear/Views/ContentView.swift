@@ -47,7 +47,7 @@ struct ContentView: View {
     @State private var pastePreview = ""
     @State private var showPasteSheet = false
     @State private var showThemePicker = false
-    @State private var showDrawer = false
+    @State private var showTaskList = false
     @State private var currentTaskID: UUID?
     @State private var taskToDelete: UUID?
     @State private var watchHandle: Task<Void, Never>?
@@ -57,8 +57,8 @@ struct ContentView: View {
     }
 
     var body: some View {
+        ZStack {
         NavigationStack {
-            ZStack {
             VStack(spacing: 0) {
                 if result != nil {
                     collapsedInputBar
@@ -99,7 +99,7 @@ struct ContentView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button { withAnimation(.easeInOut(duration: 0.2)) { showDrawer = true } } label: {
+                    Button { showTaskList = true } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "line.3.horizontal")
                                 .fontWeight(.semibold)
@@ -141,10 +141,16 @@ struct ContentView: View {
             .sheet(isPresented: $showThemePicker) {
                 themePickerSheet
             }
-            // Left drawer overlay
-            drawerOverlay
-            } // ZStack
+        } // NavigationStack
+
+        // Full-screen task list slides from left
+        if showTaskList {
+            taskListPage
+                .transition(.move(edge: .leading))
+                .zIndex(1)
         }
+        } // ZStack
+        .animation(.easeInOut(duration: 0.25), value: showTaskList)
     }
 
     // MARK: - Mode Picker
@@ -726,26 +732,9 @@ struct ContentView: View {
         return task.selectedThemeID
     }
 
-    // MARK: - Drawer
+    // MARK: - Task List Page
 
-    private var drawerOverlay: some View {
-        ZStack {
-            if showDrawer {
-                Color.black.opacity(0.3)
-                    .ignoresSafeArea()
-                    .onTapGesture { withAnimation(.easeInOut(duration: 0.2)) { showDrawer = false } }
-                HStack {
-                    drawerContent
-                        .frame(width: 280)
-                        .background(Color(.systemBackground))
-                        .transition(.move(edge: .leading))
-                    Spacer()
-                }
-            }
-        }
-    }
-
-    private var drawerContent: some View {
+    private var taskListPage: some View {
         VStack(spacing: 0) {
             // Header
             HStack {
@@ -753,12 +742,14 @@ struct ContentView: View {
                     .font(.title3)
                     .fontWeight(.bold)
                 Spacer()
+                Button("完成") {
+                    showTaskList = false
+                }
             }
             .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 4)
+            .padding(.vertical, 12)
 
-            // New dialog button
+            // New dialog
             Button {
                 selectNewDialog()
             } label: {
@@ -776,19 +767,18 @@ struct ContentView: View {
                 .cornerRadius(8)
             }
             .buttonStyle(.plain)
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 16)
             .padding(.bottom, 8)
 
             Divider()
 
             if taskManager.tasks.isEmpty {
                 Spacer()
-                Text("暂无对话")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                Text("开始AI创作后自动出现在这里")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                ContentUnavailableView(
+                    "暂无对话",
+                    systemImage: "clock.badge.exclamationmark",
+                    description: Text("开始AI创作后自动出现在这里")
+                )
                 Spacer()
             } else {
                 List {
@@ -854,9 +844,11 @@ struct ContentView: View {
                         .cornerRadius(6)
                     }
                 }
-                .listStyle(.plain)
+                .listStyle(.insetGrouped)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Color(.systemBackground).ignoresSafeArea())
         .alert("确认删除", isPresented: Binding(
             get: { taskToDelete != nil },
             set: { if !$0 { taskToDelete = nil } }
@@ -874,7 +866,7 @@ struct ContentView: View {
     }
 
     private func selectNewDialog() {
-        withAnimation(.easeInOut(duration: 0.2)) { showDrawer = false }
+        showTaskList = false
         currentTaskID = nil
         result = nil
         errorMessage = nil
@@ -884,7 +876,7 @@ struct ContentView: View {
     }
 
     private func selectTask(_ task: GenerationTask) {
-        withAnimation(.easeInOut(duration: 0.2)) { showDrawer = false }
+        showTaskList = false
         inputText = task.inputText
         inputMode = task.inputMode
         errorMessage = nil
