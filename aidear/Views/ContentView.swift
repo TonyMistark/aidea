@@ -50,6 +50,7 @@ struct ContentView: View {
     @State private var showTaskList = false
     @State private var currentTaskID: UUID?
     @State private var taskToDelete: UUID?
+    @State private var copiedLabel: String?
     @State private var watchHandle: Task<Void, Never>?
 
     private var service: GenerationService {
@@ -338,12 +339,24 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 16) {
             Divider()
 
-            // Title — selectable & copyable
+            // Title — with copy button
             if !result.title.isEmpty {
-                Text(result.title)
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .textSelection(.enabled)
+                HStack(alignment: .firstTextBaseline) {
+                    Text(result.title)
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .textSelection(.enabled)
+                    Spacer()
+                    Button {
+                        doCopy(label: "title", content: result.title)
+                    } label: {
+                        Label("复制标题", systemImage: copiedLabel == "title" ? "checkmark" : "doc.on.doc")
+                            .labelStyle(.iconOnly)
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.secondary)
+                }
             }
 
             // Summary
@@ -366,12 +379,14 @@ struct ContentView: View {
                     Spacer()
 
                     Button {
-                        UIPasteboard.general.string = result.summary
+                        doCopy(label: "summary", content: result.summary)
                     } label: {
-                        Image(systemName: "doc.on.doc")
+                        Label("复制摘要", systemImage: copiedLabel == "summary" ? "checkmark" : "doc.on.doc")
+                            .labelStyle(.iconOnly)
                             .font(.caption)
                     }
-                    .buttonStyle(.borderless)
+                    .buttonStyle(.bordered)
+                    .tint(.secondary)
                 }
             }
 
@@ -433,9 +448,9 @@ struct ContentView: View {
                     .cornerRadius(8)
 
                 Button {
-                    UIPasteboard.general.string = prompt
+                    doCopy(label: "prompt", content: prompt)
                 } label: {
-                    Label("复制提示词", systemImage: "doc.on.doc")
+                    Label("复制提示词", systemImage: copiedLabel == "prompt" ? "checkmark" : "doc.on.doc")
                         .font(.caption)
                 }
                 .buttonStyle(.bordered)
@@ -448,8 +463,13 @@ struct ContentView: View {
     private func copyButton(_ result: GenerationResult) -> some View {
         Button {
             copyHTMLTrigger += 1
+            copiedLabel = "html"
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                if copiedLabel == "html" { copiedLabel = nil }
+            }
         } label: {
-            Label("复制微信格式", systemImage: "doc.on.doc")
+            Label("复制微信格式", systemImage: copiedLabel == "html" ? "checkmark" : "doc.on.doc")
                 .font(.subheadline)
                 .frame(maxWidth: .infinity)
         }
@@ -646,6 +666,15 @@ struct ContentView: View {
     }
 
     // MARK: - Actions
+
+    private func doCopy(label: String, content: String) {
+        UIPasteboard.general.string = content
+        copiedLabel = label
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            if copiedLabel == label { copiedLabel = nil }
+        }
+    }
 
     private func dismissKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder),
